@@ -20,6 +20,7 @@ type Email struct {
 }
 type EmailConf struct {
 	From     string `json:"from"`
+	User     string `json:"user"`
 	Password string `json:"password"`
 	SmtpHost string `json:"smtpHost"`
 	SmtpPort string `json:"smtpPort"`
@@ -162,27 +163,33 @@ func send_email(w http.ResponseWriter, r *http.Request) {
 	// Configuration
 	load_cofig(env_file)
 	from := EmailConfig[0].From
+	user := EmailConfig[0].User
 	password := EmailConfig[0].Password
 	smtpHost := EmailConfig[0].SmtpHost
 	smtpPort := EmailConfig[0].SmtpPort
-
-	j := make(map[string]map[string]interface{})
-	getJSON(url_uah, j)
-	message := []byte(fmt.Sprintf("%s", j["BTC_UAH"]["last_trade"]))
-	fmt.Printf(string(message))
 
 	to := []string{}
 	for _, to_email := range Emails {
 		to = append(to, to_email.Email)
 	}
 
+	j := make(map[string]map[string]interface{})
+	getJSON(url_uah, j)
+	message := "From: " + from + "\r\n" +
+		"Subject: BTC_UAH\r\n\r\n"
+
+	message = message + " BTC_UAH: " + fmt.Sprintf("%s", j["BTC_UAH"]["last_trade"])
+	message = message + "\r\n"
+	// message := []byte(fmt.Sprintf("%s", j["BTC_UAH"]["last_trade"]))
+	// fmt.Printf(string(message))
+
 	// Create authentication
-	auth := smtp.PlainAuth("", from, password, smtpHost)
+	auth := smtp.PlainAuth("", user, password, smtpHost)
 
 	// Send actual message
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, []byte(message))
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	json.NewEncoder(w).Encode(map[string]string{"answer": "email sent"})
 }
